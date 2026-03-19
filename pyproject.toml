@@ -1,0 +1,17 @@
+[project]
+name = "boardgame-ai"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "langchain",
+    "langchain-community",
+    "requests",
+    "pymupdf",
+    "faiss-cpu",
+    "fastapi",
+    "uvicorn",
+    "streamlit",
+    "sqlalchemy",
+    "ddgs>=9.11.4",
+    "langdetect>=1.0.9",
+]
