@@ -7,14 +7,11 @@ wheels/
 *.egg-info
 
 # Cache directories
-.cache/
-app/cache/
-.pytest_cache/
-
-*.pdf
+bgrules/cache/
 
 # FAISS index
-faiss_index
+bgrules/faiss_index/
 
 # Virtual environments
 .venv
+bgrules
