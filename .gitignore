@@ -13,5 +13,8 @@ app/cache/
 
 *.pdf
 
+# FAISS index
+faiss_index
+
 # Virtual environments
 .venv
