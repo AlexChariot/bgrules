@@ -228,6 +228,7 @@ Answer:"""
 def _open_pdf(game: str) -> None:
     """Open the cached PDF for *game* with the system's default viewer."""
     import subprocess
+    import shutil
     import sys as _sys
     from bgrules.scraper import get_cache_path
 
@@ -238,12 +239,25 @@ def _open_pdf(game: str) -> None:
 
     if _sys.platform == "darwin":
         subprocess.Popen(["open", pdf_path])
+        print(f"  📄 Opening PDF for '{game}'...")
+        return
     elif _sys.platform == "win32":
         os.startfile(pdf_path)
-    else:
-        subprocess.Popen(["xdg-open", pdf_path])
+        print(f"  📄 Opening PDF for '{game}'...")
+        return
 
-    print(f"  📄 Opening PDF for '{game}'...")
+    # Linux: try known PDF viewers in order of preference
+    PDF_VIEWERS = ["evince", "okular", "zathura", "mupdf", "atril", "xdg-open"]
+    viewer = next((v for v in PDF_VIEWERS if shutil.which(v)), None)
+
+    if viewer:
+        subprocess.Popen([viewer, pdf_path],
+                         stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL)
+        print(f"  📄 Opening PDF for '{game}' with {viewer}...")
+    else:
+        print(f"  ✗ No PDF viewer found. Install one: apt install evince")
+        print(f"  ℹ️  PDF path: {pdf_path}")
 
 
 def interactive_rag(game: str = None):
