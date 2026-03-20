@@ -1,6 +1,8 @@
 [project]
-name = "boardgame-ai"
+name = "bgrules"
 version = "0.1.0"
+description = "Board game rules retriever with agent pipeline, cache, and language preference"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "langchain",
@@ -14,4 +16,19 @@ dependencies = [
     "sqlalchemy",
     "ddgs>=9.11.4",
     "langdetect>=1.0.9",
+    "typer>=0.24.1",
+    "langchain-ollama>=1.0.1",
 ]
+
+[project.scripts]
+bgrules = "bgrules.main:app"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["bgrules"]
+
+[tool.uv]
+package = true
