@@ -6,22 +6,22 @@ from bgrules.agents import ParserAgent
 
 
 def _load_embeddings():
-    # Prefer langchain_ollama; fall back to langchain_community, then langchain
+    from bgrules.ollama import get_current_embeddings_model
+    model = get_current_embeddings_model()
+
     try:
         from langchain_ollama import OllamaEmbeddings
-        return OllamaEmbeddings(model="llama3")
+        return OllamaEmbeddings(model=model)
     except ImportError:
         pass
-
     try:
         from langchain_community.embeddings import OllamaEmbeddings
-        return OllamaEmbeddings(model="llama3")
+        return OllamaEmbeddings(model=model)
     except ImportError:
         pass
-
     try:
         from langchain.embeddings import OllamaEmbeddings
-        return OllamaEmbeddings(model="llama3")
+        return OllamaEmbeddings(model=model)
     except ImportError as e:
         raise RuntimeError(
             "OllamaEmbeddings is required. Install with: pip install -U langchain-ollama"
@@ -29,95 +29,105 @@ def _load_embeddings():
 
 
 def _load_llm():
-    # OllamaLLM is the current non-deprecated class (langchain-ollama >= 0.3.1)
+    from bgrules.ollama import get_current_llm_model
+    model = get_current_llm_model()
+
     try:
         from langchain_ollama import OllamaLLM
-        return OllamaLLM(model="llama3")
+        return OllamaLLM(model=model)
     except ImportError:
         pass
-
-    # Legacy fallback: langchain_community (triggers deprecation warning)
     try:
         from langchain_community.llms import Ollama
-        return Ollama(model="llama3")
+        return Ollama(model=model)
     except ImportError as e:
         raise RuntimeError(
             "langchain-ollama is required. Install with: pip install -U langchain-ollama"
         ) from e
 
 
-def _load_cached_texts():
-    """Load text from all cached PDFs."""
-    import json
-
-    path = Path(CACHE_DIR)
-    parser = ParserAgent()
-
-    # Load cache index to resolve MD5 hashes -> game names
-    index_path = path / ".cache_index.json"
-    cache_index = {}
-    if index_path.exists():
-        try:
-            with open(index_path, "r") as f:
-                cache_index = json.load(f)
-        except Exception:
-            pass
-
-    pdf_files = list(path.glob("*.pdf"))
-    # Sort alphabetically by resolved game name rather than by raw MD5 filename
-    pdf_files.sort(key=lambda p: cache_index.get(p.stem, p.name).lower())
-    total_files = len(pdf_files)
-    print(f"📂 Indexing {total_files} cached PDF file(s)...")
-
-    for i, pdf_file in enumerate(pdf_files, start=1):
-        game_name = cache_index.get(pdf_file.stem, pdf_file.name)
-        print(f"📄 Processing PDF {i}/{total_files}: {game_name}")
-        try:
-            with open(pdf_file, "rb") as f:
-                pdf_bytes = f.read()
-            text = parser.run(pdf_bytes)
-            if text:
-                yield f"{pdf_file.stem}\n{text}"
-        except Exception as e:
-            print(f"❌ Error processing {pdf_file.name}: {e}")
-            continue
-
-
+# Root directory that contains one sub-folder per game (named after the MD5 stem).
 FAISS_INDEX_DIR = os.path.join(os.path.dirname(__file__), "faiss_index")
 
 
-def _get_indexed_stems() -> set:
-    """Return the set of PDF stems already present in the persisted FAISS index."""
-    import json
-    meta_path = os.path.join(FAISS_INDEX_DIR, ".indexed_stems.json")
-    if not os.path.exists(meta_path):
-        return set()
-    with open(meta_path) as f:
-        return set(json.load(f))
+def _game_index_dir(stem: str) -> str:
+    """Return the FAISS index directory for a specific game stem."""
+    return os.path.join(FAISS_INDEX_DIR, stem)
 
 
-def _save_indexed_stems(stems: set):
-    """Persist the set of indexed PDF stems to disk."""
-    import json
-    os.makedirs(FAISS_INDEX_DIR, exist_ok=True)
-    meta_path = os.path.join(FAISS_INDEX_DIR, ".indexed_stems.json")
-    with open(meta_path, "w") as f:
-        json.dump(list(stems), f)
+def _load_faiss():
+    try:
+        from langchain_community.vectorstores import FAISS
+        return FAISS
+    except ImportError:
+        pass
+    try:
+        from langchain.vectorstores import FAISS
+        return FAISS
+    except ImportError as e:
+        raise RuntimeError(
+            "FAISS vectorstore is required. "
+            "Install with: pip install langchain-community faiss-cpu"
+        ) from e
+
+
+def _build_game_index(stem: str, pdf_path: Path, game_name: str, embeddings) -> object:
+    """Build (or load if already up to date) the FAISS index for a single game.
+
+    Returns the FAISS index object, or None on failure.
+    """
+    FAISS = _load_faiss()
+    index_dir = _game_index_dir(stem)
+
+    # If an index already exists for this game, load and return it directly.
+    if os.path.exists(index_dir):
+        try:
+            index = FAISS.load_local(
+                index_dir, embeddings, allow_dangerous_deserialization=True
+            )
+            print(f"  ✓ {game_name}: index loaded from cache.")
+            return index
+        except Exception as e:
+            print(f"  ⚠️  {game_name}: could not load existing index, rebuilding ({e})")
+
+    # Build a fresh index for this game.
+    parser = ParserAgent()
+    try:
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
+        text = parser.run(pdf_bytes)
+        if not text:
+            print(f"  ✗ {game_name}: no text extracted, skipping.")
+            return None
+
+        index = FAISS.from_texts([text], embeddings)
+        os.makedirs(index_dir, exist_ok=True)
+        index.save_local(index_dir)
+        print(f"  ✓ {game_name}: index built and saved.")
+        return index
+    except Exception as e:
+        print(f"  ✗ {game_name}: error during indexing ({e})")
+        return None
 
 
 def build_retriever(game: str = None):
-    """Build (or update) a FAISS retriever from cached PDFs.
+    """Build a FAISS retriever scoped to a single game, or all cached games.
 
-    If a persisted index already exists, only PDFs not yet indexed are added.
-    When *game* is provided, only that game's PDF is considered.
+    When *game* is provided, only that game's isolated index is used —
+    guaranteeing that answers never bleed across games.
+    When *game* is None, a merged in-memory index across all cached games is
+    built (useful for cross-game queries, though isolation is lost).
     """
     import json
+    import hashlib
 
     path = Path(CACHE_DIR)
+    embeddings = _load_embeddings()
+    FAISS = _load_faiss()
 
-    # Load cache index to resolve stems -> game names
+    # Resolve cache index (stem -> game name)
+    cache_index: dict[str, str] = {}
     index_path = path / ".cache_index.json"
-    cache_index = {}
     if index_path.exists():
         try:
             with open(index_path) as f:
@@ -125,82 +135,46 @@ def build_retriever(game: str = None):
         except Exception:
             pass
 
-    # Determine which PDF(s) to process
     if game:
-        import hashlib
+        # --- Single-game mode: strict isolation ---
         stem = hashlib.md5(game.lower().encode()).hexdigest()
         pdf_files = [p for p in path.glob("*.pdf") if p.stem == stem]
+        if not pdf_files:
+            return None
+
+        pdf_path = pdf_files[0]
+        game_name = cache_index.get(stem, game)
+        print(f"🔄 Loading index for '{game_name}'...")
+        index = _build_game_index(stem, pdf_path, game_name, embeddings)
+        if index is None:
+            return None
+        return index.as_retriever(search_kwargs={"k": 4})
+
     else:
+        # --- All-games mode: merge individual indexes in memory ---
         pdf_files = sorted(
             path.glob("*.pdf"),
             key=lambda p: cache_index.get(p.stem, p.name).lower(),
         )
+        if not pdf_files:
+            return None
 
-    if not pdf_files:
-        return None
-
-    embeddings = _load_embeddings()
-    try:
-        from langchain_community.vectorstores import FAISS
-    except ImportError:
-        try:
-            from langchain.vectorstores import FAISS
-        except ImportError as e:
-            raise RuntimeError(
-                "FAISS vectorstore is required. "
-                "Install with: pip install langchain-community faiss-cpu"
-            ) from e
-
-    # Load existing index if one is already persisted
-    faiss_index = None
-    indexed_stems = _get_indexed_stems()
-    if os.path.exists(FAISS_INDEX_DIR) and indexed_stems:
-        try:
-            faiss_index = FAISS.load_local(
-                FAISS_INDEX_DIR, embeddings, allow_dangerous_deserialization=True
-            )
-            print(f"✓ FAISS index loaded ({len(indexed_stems)} document(s) already indexed).")
-        except Exception as e:
-            print(f"⚠️  Could not load existing index, rebuilding: {e}")
-            faiss_index = None
-            indexed_stems = set()
-
-    # Only process PDFs that are not yet in the index
-    parser = ParserAgent()
-    new_files = [p for p in pdf_files if p.stem not in indexed_stems]
-
-    if not new_files:
-        print("✓ All documents are already indexed.")
-    else:
-        print(f"🧮 Generating embeddings for {len(new_files)} new document(s)...")
-        for i, pdf_file in enumerate(new_files, start=1):
-            game_name = cache_index.get(pdf_file.stem, pdf_file.name)
-            print(f"  [{i}/{len(new_files)}] {game_name}...", end="\r")
-            try:
-                with open(pdf_file, "rb") as f:
-                    pdf_bytes = f.read()
-                text = parser.run(pdf_bytes)
-                if not text:
-                    continue
-                full_text = f"{pdf_file.stem}\n{text}"
-                if faiss_index is None:
-                    faiss_index = FAISS.from_texts([full_text], embeddings)
-                else:
-                    faiss_index.add_texts([full_text])
-                indexed_stems.add(pdf_file.stem)
-            except Exception as e:
-                print(f"\n❌ Error indexing {game_name}: {e}")
+        print(f"🔄 Loading indexes for {len(pdf_files)} game(s)...")
+        merged: object = None
+        for pdf_path in pdf_files:
+            stem = pdf_path.stem
+            game_name = cache_index.get(stem, pdf_path.name)
+            index = _build_game_index(stem, pdf_path, game_name, embeddings)
+            if index is None:
                 continue
+            if merged is None:
+                merged = index
+            else:
+                merged.merge_from(index)
 
-        print()  # newline after \r
-        os.makedirs(FAISS_INDEX_DIR, exist_ok=True)
-        faiss_index.save_local(FAISS_INDEX_DIR)
-        _save_indexed_stems(indexed_stems)
-        print("✓ FAISS index saved.")
-
-    if faiss_index is None:
-        return None
-    return faiss_index.as_retriever(search_kwargs={"k": 4})
+        if merged is None:
+            return None
+        return merged.as_retriever(search_kwargs={"k": 4})
 
 
 def rag_answer(question: str, retriever):
@@ -243,9 +217,6 @@ Answer:"""
     )
 
     answer_text = chain.invoke(question)
-
-    # Fetch source documents separately to keep the return value compatible
-    # with callers expecting {"result": ..., "source_documents": [...]}
     source_docs = retriever.invoke(question)
 
     return {
@@ -256,7 +227,7 @@ Answer:"""
 
 def interactive_rag(game: str = None):
     """Run an interactive RAG chat session."""
-    print("\n🔄 Indexing cached PDFs...")
+    print()
     retriever = build_retriever(game=game)
     if retriever is None:
         raise RuntimeError(
@@ -264,21 +235,22 @@ def interactive_rag(game: str = None):
             "Run `bgrules find <game>` first."
         )
 
-    print("✓ RAG index ready!\n")
+    scope = f"'{game}'" if game else "all cached games"
+    print(f"✓ RAG index ready ({scope})!\n")
     print("📚 RAG chat active. Ask questions about the rules (type 'exit' to quit).\n")
 
     while True:
-        prompt = input("❓ Question > ").strip()
-        if prompt.lower() in {"exit", "quit", "q"}:
+        user_prompt = input("❓ Question > ").strip()
+        if user_prompt.lower() in {"exit", "quit", "q"}:
             print("\n👋 RAG chat session ended.")
             break
 
-        if not prompt:
+        if not user_prompt:
             continue
 
         try:
             print("\n🤔 Processing your question...")
-            answer = rag_answer(prompt, retriever)
+            answer = rag_answer(user_prompt, retriever)
             print("✓ Answer:\n")
             print(answer["result"])
             print("\n" + "=" * 80 + "\n")
