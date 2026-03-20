@@ -280,7 +280,7 @@ def interactive_rag(game: str = None):
             print("\n🤔 Processing your question...")
             answer = rag_answer(prompt, retriever)
             print("✓ Answer:\n")
-            print(answer)
+            print(answer["result"])
             print("\n" + "=" * 80 + "\n")
         except Exception as exc:
             print(f"❌ RAG error: {exc}\n")
