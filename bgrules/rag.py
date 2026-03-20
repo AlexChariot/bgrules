@@ -225,6 +225,27 @@ Answer:"""
     }
 
 
+def _open_pdf(game: str) -> None:
+    """Open the cached PDF for *game* with the system's default viewer."""
+    import subprocess
+    import sys as _sys
+    from bgrules.scraper import get_cache_path
+
+    pdf_path = get_cache_path(game)
+    if not os.path.exists(pdf_path):
+        print(f"  ✗ No cached PDF found for '{game}'.")
+        return
+
+    if _sys.platform == "darwin":
+        subprocess.Popen(["open", pdf_path])
+    elif _sys.platform == "win32":
+        os.startfile(pdf_path)
+    else:
+        subprocess.Popen(["xdg-open", pdf_path])
+
+    print(f"  📄 Opening PDF for '{game}'...")
+
+
 def interactive_rag(game: str = None):
     """Run an interactive RAG chat session."""
     print()
@@ -237,15 +258,27 @@ def interactive_rag(game: str = None):
 
     scope = f"'{game}'" if game else "all cached games"
     print(f"✓ RAG index ready ({scope})!\n")
-    print("📚 RAG chat active. Ask questions about the rules (type 'exit' to quit).\n")
+
+    help_line = "(type 'pdf' to open the rulebook, 'exit' to quit)"
+    if not game:
+        help_line = "(type 'exit' to quit)"
+    print(f"📚 RAG chat active. Ask questions about the rules {help_line}.\n")
 
     while True:
         user_prompt = input("❓ Question > ").strip()
+
         if user_prompt.lower() in {"exit", "quit", "q"}:
             print("\n👋 RAG chat session ended.")
             break
 
         if not user_prompt:
+            continue
+
+        if user_prompt.lower() == "pdf":
+            if game:
+                _open_pdf(game)
+            else:
+                print("  ℹ️  'pdf' is only available when a single game is selected (--game).")
             continue
 
         try:

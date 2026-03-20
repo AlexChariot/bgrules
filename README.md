@@ -72,7 +72,7 @@ sequenceDiagram
         end
     end
 
-    U->>R: rag --game "Gloomhaven"
+    U->>R: rag "Gloomhaven"
     R->>R: load/build isolated FAISS index
     R-->>U: interactive Q&A session
 ```
@@ -84,8 +84,9 @@ bgrules
 ├── find <game>              Search, download (with preview & validation), and cache rules PDF
 │     --debug                Enable verbose debug output
 ├── list                     List all cached games (alphabetically)
-├── rag                      Interactive RAG chat over all cached games
-│     --game / -g <game>     Scope the session to a single game (strict isolation)
+├── rag [game]               Interactive RAG chat — optional game name as positional arg
+│                            Omit to query all cached games (merged indexes)
+│                            Type 'pdf' during session to open the rulebook (single-game only)
 │
 ├── cache
 │   ├── clear                Delete all cached PDFs and the cache index
@@ -109,10 +110,12 @@ uv run bgrules find "Catan" --debug
 uv run bgrules list
 
 # RAG chat — single game (strict, no cross-game bleed)
-uv run bgrules rag --game "Gloomhaven"
+uv run bgrules rag "Gloomhaven"
 
 # RAG chat — all cached games merged
 uv run bgrules rag
+
+# During a RAG session, type 'pdf' to open the rulebook in your system viewer
 
 # Cache management
 uv run bgrules cache clear
@@ -143,8 +146,9 @@ uv run bgrules llm faiss-clear --game "Gloomhaven"  # clear one game
 - Domain whitelist covering major publishers (Asmodee, Stonemaier, Fantasy Flight, IELLO, Matagot, …) and rule aggregators (1j1ju, BoardGameGeek, …)
 - Prefers French PDFs, falls back to English
 - Downloads **all valid candidates**, shows a first-page preview, and asks for confirmation before caching — skips to the next candidate if rejected
-- Per-game isolated FAISS indexes: scoping `rag --game X` guarantees answers never bleed across games
+- Per-game isolated FAISS indexes: `rag Gloomhaven` guarantees answers never bleed across games
 - All-games mode merges individual indexes in memory without mixing them on disk
+- Type `pdf` during a single-game RAG session to open the rulebook in the system viewer (xdg-open / open / start)
 - LLM and embeddings models are fully decoupled — switching LLM has no impact on existing FAISS indexes; switching embeddings model requires `llm faiss-clear`
 - `llm status` detects which Ollama models are actually installed and warns if a configured model is missing
 - `llm set` overrides the LLM for the current session; permanent change via `config.py`
@@ -174,7 +178,7 @@ uv sync
 
 ```bash
 uv run bgrules find "Pandemic"
-uv run bgrules rag --game "Pandemic"
+uv run bgrules rag "Pandemic"
 ```
 
 ## Notes

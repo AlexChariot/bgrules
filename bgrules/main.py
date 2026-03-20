@@ -115,9 +115,9 @@ def list_games():
 
 @app.command()
 def rag(
-    game: Optional[str] = typer.Option(
-        None, "--game", "-g",
-        help="Game to query (must already be cached via `find`).",
+    game: Optional[str] = typer.Argument(
+        None,
+        help="Game to query (must already be cached via `find`). Omit to query all cached games.",
     )
 ):
     """Open an interactive RAG chat session against cached game rules."""
