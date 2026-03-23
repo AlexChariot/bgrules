@@ -21,7 +21,7 @@ app.add_typer(llm_app, name="llm")
 # ---------------------------------------------------------------------------
 # Main commands  (find · list · rag)
 # ---------------------------------------------------------------------------
-
+    
 @app.command()
 def find(
     game: str = typer.Argument(..., help="Name of the game to search rules for"),
@@ -72,22 +72,45 @@ def find(
 
         try:
             import fitz
-            doc = fitz.open(stream=content, filetype="pdf")
-            preview = doc[0].get_text()[:600].strip()
-            typer.echo("─" * 60)
-            typer.echo(preview)
-            typer.echo("─" * 60)
-        except Exception:
-            typer.echo("  (Could not generate preview)")
+            import tempfile
+            import os
+            import shutil
+            import subprocess
 
-        confirm = typer.confirm("Is this the correct rules PDF?")
-        if confirm:
-            chosen_content = content
-            save_to_cache(game, content)
-            typer.echo(f"✓ '{game}' saved to cache.")
-            break
-        else:
-            typer.echo("  Skipping to next candidate...\n")
+            # Create a temporary file to save the PDF
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
+                temp_file.write(content)
+                temp_file_path = temp_file.name
+
+            # Open the PDF with the best available viewer
+            if sys.platform == "win32":
+                os.startfile(temp_file_path)
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", temp_file_path])
+            else:
+                PDF_VIEWERS = ["evince", "okular", "zathura", "mupdf", "atril", "xdg-open"]
+                viewer = next((v for v in PDF_VIEWERS if shutil.which(v)), None)
+                if viewer:
+                    subprocess.Popen([viewer, temp_file_path],
+                                     stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.DEVNULL)
+                else:
+                    typer.echo(f"  ℹ️  No PDF viewer found. Install one: apt install evince")
+                    typer.echo(f"  ℹ️  PDF path: {temp_file_path}")
+
+            confirm = typer.confirm("Is this the correct rules PDF?")
+            if confirm:
+                chosen_content = content
+                save_to_cache(game, content)
+                typer.echo(f"✓ '{game}' saved to cache.")
+                break
+            else:
+                typer.echo("  Skipping to next candidate...\n")
+
+            # Clean up the temporary file
+            os.unlink(temp_file_path)
+        except Exception as e:
+            typer.echo(f"  (Could not display PDF: {str(e)})")
 
     if chosen_content is None:
         typer.echo("✗ No suitable PDF was validated. Nothing saved to cache.")
