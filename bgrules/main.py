@@ -12,7 +12,7 @@ _CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 # Apps
 # ---------------------------------------------------------------------------
 
-app = typer.Typer(help="Board game rules retriever CLI", add_completion=False), context_settings=_CONTEXT_SETTINGS
+app = typer.Typer(help="Board game rules retriever CLI", add_completion=False, context_settings=_CONTEXT_SETTINGS)
 
 cache_app = typer.Typer(help="Manage the local PDF cache.", add_completion=False, context_settings=_CONTEXT_SETTINGS)
 app.add_typer(cache_app, name="cache")
