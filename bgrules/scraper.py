@@ -99,13 +99,57 @@ def search(game):
         return strong_matches + weak_matches
 
 
-def safe_download(url):
+def download_pdf_from_url(url, timeout=20):
+    """Download a PDF from a direct URL.
+
+    Accepts standard application/pdf responses and also tolerates URLs ending
+    with .pdf when servers send an incorrect content-type.
+    """
     try:
-        r = requests.get(url, timeout=10)
-        if r.status_code == 200 and "pdf" in r.headers.get("content-type", ""):
-            return r.content
-    except requests.exceptions.RequestException:
+        response = requests.get(
+            url,
+            timeout=timeout,
+            allow_redirects=True,
+            headers={"User-Agent": "bgrules/1.0"},
+        )
+        response.raise_for_status()
+
+        content_type = response.headers.get("content-type", "").lower()
+        final_url = response.url.lower()
+        looks_like_pdf = (
+            "pdf" in content_type
+            or final_url.endswith(".pdf")
+            or url.lower().endswith(".pdf")
+        )
+
+        if not looks_like_pdf:
+            debug_print(
+                f"DEBUG: URL did not look like a PDF (content-type={content_type!r}, final_url={response.url!r})"
+            )
+            return None
+
+        pdf_bytes = response.content
+        if not pdf_bytes:
+            debug_print("DEBUG: Empty response body while downloading PDF")
+            return None
+
+        # Lightweight structural check: PyMuPDF must be able to open it.
+        try:
+            import fitz
+
+            fitz.open(stream=pdf_bytes, filetype="pdf")
+        except Exception as e:
+            debug_print(f"DEBUG: Downloaded content is not a valid PDF: {e}")
+            return None
+
+        return pdf_bytes
+    except requests.exceptions.RequestException as e:
+        debug_print(f"DEBUG: PDF download failed for {url}: {e}")
         return None
+
+
+def safe_download(url):
+    return download_pdf_from_url(url, timeout=10)
 
 
 def extract_text_from_pdf(pdf_bytes):

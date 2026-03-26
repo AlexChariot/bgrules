@@ -6,7 +6,9 @@ from bgrules.agents import ParserAgent
 
 
 def _load_embeddings():
-    from bgrules.ollama import get_current_embeddings_model
+    from bgrules.ollama import ensure_required_models_available, get_current_embeddings_model
+
+    ensure_required_models_available()
     model = get_current_embeddings_model()
 
     try:
@@ -29,7 +31,9 @@ def _load_embeddings():
 
 
 def _load_llm():
-    from bgrules.ollama import get_current_llm_model
+    from bgrules.ollama import ensure_required_models_available, get_current_llm_model
+
+    ensure_required_models_available()
     model = get_current_llm_model()
 
     try:
@@ -303,3 +307,16 @@ def interactive_rag(game: str = None):
             print("\n" + "=" * 80 + "\n")
         except Exception as exc:
             print(f"❌ RAG error: {exc}\n")
+
+def clear_game_index(game: str) -> bool:
+    """Delete the cached FAISS index for a specific game, if it exists."""
+    import hashlib
+    import shutil
+
+    stem = hashlib.md5(game.lower().encode()).hexdigest()
+    index_dir = _game_index_dir(stem)
+
+    if os.path.exists(index_dir):
+        shutil.rmtree(index_dir)
+        return True
+    return False

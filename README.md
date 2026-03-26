@@ -1,39 +1,123 @@
-# Board Game Rules PDF Retriever
+# BGRules
 
-Local AI system to find, cache, and chat with board game rules using RAG.
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![CLI](https://img.shields.io/badge/interface-Typer-7A42F4.svg)](https://typer.tiangolo.com/)
+[![RAG](https://img.shields.io/badge/RAG-LangChain-1C3C3C.svg)](https://python.langchain.com/)
+[![Vector%20Store](https://img.shields.io/badge/vector%20store-FAISS-0467DF.svg)](https://github.com/facebookresearch/faiss)
+[![Local%20LLM](https://img.shields.io/badge/local%20LLM-Ollama-000000.svg)](https://ollama.com/)
+
+> **Stop reading rulebooks. Start querying them.**
+
+Local CLI to find, add, cache, index, and query board game rulebooks with a per-game RAG pipeline.
+
+## Overview
+
+BGRules helps you build a local rulebook assistant for board games:
+
+- search and download rule PDFs
+- add your own rulebooks from a direct PDF URL
+- cache documents locally
+- build isolated FAISS indexes per game
+- chat with the rules through Ollama
+
+The per-game indexing model matters: querying one game keeps the retrieval scope limited to that game's PDF, so answers do not bleed across unrelated games.
+
+
+## How it works (at a glance)
+
+```mermaid
+flowchart LR
+    U[User] -->|find or add| I[Get rulebook PDF]
+    I --> C[Local cache]
+    C --> X[Per-game index]
+    X --> Q[Ask questions]
+    Q --> A[Answer from rules]
+```
+
+
+## Screenshot
+
+![BGRules CLI screenshot](docs/screenshot.png)
+
+## Features
+
+- DuckDuckGo-based PDF discovery for board game rules
+- domain filtering for publishers and trusted rule sources
+- French-first download preference, with English fallback
+- interactive validation when using `find`
+- direct PDF import with `add`
+- local cache for downloaded rulebooks
+- isolated FAISS index per game
+- all-games RAG mode when no game is specified
+- `pdf` shortcut during a single-game RAG session to open the cached rulebook
+- Ollama model status and session-level LLM override
+
+
+## Two ways to add a game
+
+```mermaid
+flowchart LR
+    U[User]
+
+    U -->|find| S[Search online PDFs]
+    S --> V[Preview & validate]
+
+    U -->|add| D[Direct PDF URL]
+
+    V --> C[Cache]
+    D --> C
+
+    C --> I[Index]
+```
 
 ## Project structure
 
-```
-boardgame-ai/
+```text
+BGRules/
+├── api/
+│   └── server.py
 ├── bgrules/
-│   ├── agents.py          # Agents pipeline (search, filter, download, parse)
-│   ├── scraper.py         # Scraping helpers, cache management, lang detection
-│   ├── rag.py             # RAG pipeline (per-game FAISS indexes, embeddings, Q&A chain)
-│   ├── ollama.py          # Ollama interaction helpers (model listing, selection, status)
-│   ├── config.py          # Global config (domains, model names, paths)
-│   ├── db.py              # SQLAlchemy document store
+│   ├── __init__.py
+│   ├── agents.py          # Search / filter / download / parse pipeline
+│   ├── config.py          # Global configuration
+│   ├── db.py              # SQLAlchemy helpers
 │   ├── main.py            # CLI entry point (Typer)
-│   └── cache/             # Downloaded PDFs (auto-created, git-ignored)
-│       └── .cache_index.json  # Hash → game name mapping
-└── faiss_index/           # Per-game FAISS vector indexes (auto-created, git-ignored)
-    └── <md5_stem>/        # One sub-folder per cached game
+│   ├── ollama.py          # Ollama helpers and model status
+│   ├── rag.py             # FAISS + retrieval + interactive QA
+│   ├── scraper.py         # Cache, download, and scraping helpers
+│   ├── cache/             # Local PDF cache (auto-created, git-ignored)
+│   └── faiss_index/       # Local FAISS indexes (auto-created, git-ignored)
+├── docs/
+│   └── screenshot.png
+├── langflow/
+│   └── flow.json
+├── ui/
+│   └── steamlit_app.py
+├── pyproject.toml
+└── README.md
 ```
+
 
 ## Architecture diagram
 
 ```mermaid
 flowchart LR
     A[User: game name] --> B[SearchAgent]
+    A2[User: PDF URL (add)] --> D[DownloadAgent]
+
     B -->|cache hit| D
     B -->|urls| C[FilterAgent — .pdf only]
-    C -->|filtered urls| D[DownloadAgent]
+    C -->|filtered urls| D
+
     D -->|all valid candidates\nFR first, then EN| V[Interactive validation]
     V -->|confirmed| Cache[(bgrules/cache/)]
+
     Cache -->|pdf bytes| E[ParserAgent]
     E -->|text| I[FAISS index\nper game]
+
     I --> J[(faiss_index/<stem>/)]
     J -->|reloaded on next run| I
+
     I -->|retriever| R[RAG Q&A chain]
     R --> LLM[Ollama LLM]
     LLM --> U[User answer]
@@ -51,23 +135,28 @@ sequenceDiagram
     participant V as Validation prompt
     participant R as RAG / FAISS
 
-    U->>S: find "Gloomhaven"
-    S->>C: cache_exists?
-    alt already cached
-        C-->>S: yes → skip search
-        S-->>D: (empty url list)
-        D-->>U: ✓ Loaded from cache
-    else not cached
-        S-->>F: url list
-        F-->>D: filtered .pdf urls
-        D->>D: download all candidates\n(cdn.1j1ju.com first, FR preferred)
-        loop for each candidate
-            D-->>V: preview first page
-            V-->>U: Is this correct?
-            alt confirmed
-                V->>C: save_to_cache
-            else rejected
-                V->>D: try next candidate
+    alt add via URL
+        U->>D: add "Catan" <url>
+        D->>C: save_to_cache
+    else find workflow
+        U->>S: find "Gloomhaven"
+        S->>C: cache_exists?
+        alt already cached
+            C-->>S: yes → skip search
+            S-->>D: (empty url list)
+            D-->>U: ✓ Loaded from cache
+        else not cached
+            S-->>F: url list
+            F-->>D: filtered .pdf urls
+            D->>D: download all candidates\n(FR preferred)
+            loop for each candidate
+                D-->>V: preview first page
+                V-->>U: Is this correct?
+                alt confirmed
+                    V->>C: save_to_cache
+                else rejected
+                    V->>D: try next candidate
+                end
             end
         end
     end
@@ -77,83 +166,7 @@ sequenceDiagram
     R-->>U: interactive Q&A session
 ```
 
-## CLI reference
-
-```
-bgrules
-├── find <game>              Search, download (with preview & validation), and cache rules PDF
-│     --debug                Enable verbose debug output
-├── list                     List all cached games (alphabetically)
-├── rag [game]               Interactive RAG chat — optional game name as positional arg
-│                            Omit to query all cached games (merged indexes)
-│                            Type 'pdf' during session to open the rulebook (single-game only)
-│
-├── cache
-│   ├── clear                Delete all cached PDFs and the cache index
-│   └── rebuild              Rebuild the cache index from existing PDFs on disk
-│
-└── llm
-    ├── status               Show current LLM/embeddings models and Ollama availability
-    ├── set <model>          Override the LLM model for this session
-    └── faiss-clear          Delete FAISS index(es)
-          --game / -g <game> Delete only that game's index (deletes all if omitted)
-```
-
-## Usage examples
-
-```bash
-# Find and cache rules (interactive PDF validation)
-uv run bgrules find "Gloomhaven"
-uv run bgrules find "Catan" --debug
-
-# Browse cached games
-uv run bgrules list
-
-# RAG chat — single game (strict, no cross-game bleed)
-uv run bgrules rag "Gloomhaven"
-
-# RAG chat — all cached games merged
-uv run bgrules rag
-
-# During a RAG session, type 'pdf' to open the rulebook in your system viewer
-
-# Cache management
-uv run bgrules cache clear
-uv run bgrules cache rebuild
-
-# LLM / embeddings management
-uv run bgrules llm status
-uv run bgrules llm set mistral
-
-# FAISS index management
-uv run bgrules llm faiss-clear                    # clear all
-uv run bgrules llm faiss-clear --game "Gloomhaven"  # clear one game
-```
-
-## Stack
-
-- **LangChain** — RAG chain, prompt templates, LCEL
-- **Ollama** — local LLM and embeddings (default: `llama3`)
-- **FAISS** — local vector store, one index per game
-- **PyMuPDF** — PDF text extraction and preview
-- **DuckDuckGo Search** — rulebook PDF discovery
-- **UV** — package and environment manager
-- **Typer** — CLI with sub-command groups
-
-## Features
-
-- Searches for board game rule PDFs via DuckDuckGo
-- Domain whitelist covering major publishers (Asmodee, Stonemaier, Fantasy Flight, IELLO, Matagot, …) and rule aggregators (1j1ju, BoardGameGeek, …)
-- Prefers French PDFs, falls back to English
-- Downloads **all valid candidates**, shows a first-page preview, and asks for confirmation before caching — skips to the next candidate if rejected
-- Per-game isolated FAISS indexes: `rag Gloomhaven` guarantees answers never bleed across games
-- All-games mode merges individual indexes in memory without mixing them on disk
-- Type `pdf` during a single-game RAG session to open the rulebook in the system viewer (xdg-open / open / start)
-- LLM and embeddings models are fully decoupled — switching LLM has no impact on existing FAISS indexes; switching embeddings model requires `llm faiss-clear`
-- `llm status` detects which Ollama models are actually installed and warns if a configured model is missing
-- `llm set` overrides the LLM for the current session; permanent change via `config.py`
-
-## Setup
+## Installation
 
 ### 1. Install Ollama and pull a model
 
@@ -162,7 +175,7 @@ ollama pull llama3
 ollama serve
 ```
 
-### 2. Install uv
+### 2. Install `uv`
 
 ```bash
 curl -Ls https://astral.sh/uv/install.sh | sh
@@ -174,29 +187,241 @@ curl -Ls https://astral.sh/uv/install.sh | sh
 uv sync
 ```
 
-### 4. Run
+## Quick start
 
 ```bash
+# Search, preview, validate, and cache a rulebook
 uv run bgrules find "Pandemic"
+
+# Add a rulebook directly from a PDF URL
+uv run bgrules add "Catan" "https://example.com/catan-rules.pdf"
+
+# Ask questions about one cached game
 uv run bgrules rag "Pandemic"
+
+# Query across all cached games
+uv run bgrules rag
 ```
+
+
+## How RAG works
+
+```mermaid
+flowchart LR
+    Q[Your question]
+    --> R[Search in game index]
+    --> C[Relevant chunks]
+    --> LLM[Ollama]
+    --> A[Grounded answer]
+```
+
+## CLI reference
+
+```text
+bgrules
+├── find <game>              Search, download, preview, validate, and cache a rules PDF
+│     --debug                Enable verbose debug output
+├── add <game> <url>         Download a rules PDF from a direct URL and add it to the cache
+│     --debug                Enable verbose debug output
+├── list                     List all cached games (alphabetically)
+├── rag [game]               Interactive RAG chat
+│                            Omit the game name to query all cached games
+│                            Type 'pdf' during a single-game session to open the rulebook
+│
+├── cache
+│   ├── clear                Delete all cached PDFs and the cache index
+│   └── rebuild              Rebuild the cache index from PDFs already on disk
+│
+└── llm
+    ├── status               Show current LLM / embeddings models and Ollama availability
+    ├── set <model>          Override the LLM model for this session
+    └── faiss-clear          Delete FAISS index(es)
+          --game / -g <game> Delete only that game's index (deletes all if omitted)
+```
+
+### `find`
+
+Searches for a rulebook online, downloads candidate PDFs, opens them for validation, and caches the confirmed file.
+
+```bash
+uv run bgrules find <NomDuJeu>
+```
+
+Example:
+
+```bash
+uv run bgrules find "Gloomhaven"
+uv run bgrules find "Catan" --debug
+```
+
+### `add`
+
+Adds a game from a direct PDF URL.
+
+```bash
+uv run bgrules add <NomDuJeu> <url>
+```
+
+Parameters:
+
+- `<NomDuJeu>`: local game name used in the cache
+- `<url>`: direct link to a PDF file
+
+What it does:
+
+- downloads the PDF
+- validates that the response looks like a real PDF
+- saves it to the local cache
+- clears the existing FAISS index for that game, if any
+- pre-processes the document so it is ready for RAG
+
+Example:
+
+```bash
+uv run bgrules add "Catan" "https://example.com/catan-rules.pdf"
+```
+
+> The URL must point directly to a PDF file, not to an HTML page with a download button.
+
+### `rag`
+
+Starts an interactive question-answering session over cached rulebooks.
+
+```bash
+uv run bgrules rag [NomDuJeu]
+```
+
+Example:
+
+```bash
+uv run bgrules rag "Pandemic"
+uv run bgrules rag
+```
+
+### `list`
+
+Lists all cached games.
+
+```bash
+uv run bgrules list
+```
+
+### `cache clear`
+
+Deletes cached PDFs and the cache index.
+
+```bash
+uv run bgrules cache clear
+```
+
+### `cache rebuild`
+
+Rebuilds the cache index from PDFs already stored on disk.
+
+```bash
+uv run bgrules cache rebuild
+```
+
+### `llm status`
+
+Displays the current LLM and embeddings configuration and checks Ollama availability.
+
+```bash
+uv run bgrules llm status
+```
+
+## Usage examples
+
+### Search and cache a game
+
+```bash
+uv run bgrules find "Gloomhaven"
+```
+
+### Add a game from a direct URL
+
+```bash
+uv run bgrules add "Catan" "https://example.com/catan-rules.pdf"
+```
+
+### Open a single-game RAG session
+
+```bash
+uv run bgrules rag "Catan"
+```
+
+### Query across every cached game
+
+```bash
+uv run bgrules rag
+```
+
+### Typical workflow
+
+```bash
+uv run bgrules add "Catan" "https://example.com/catan-rules.pdf"
+uv run bgrules rag "Catan"
+```
+
+Then ask something like:
+
+```text
+Comment fonctionne le commerce ?
+```
+
+
+## Per-game isolation
+
+```mermaid
+flowchart LR
+    A[Catan index]
+    B[Gloomhaven index]
+    C[Pandemic index]
+
+    Q1[Question on Catan] --> A
+    Q2[Question on Gloomhaven] --> B
+```
+
+
+## How indexing works
+
+- each cached game is mapped to a stable local filename
+- each game gets its own FAISS index
+- the index is built on the first `rag` call if it does not already exist
+- when using `add`, the previous index for that game is invalidated to avoid stale retrieval
+- querying a specific game uses only that game's index
+- querying without a game merges all cached indexes in memory
+
+## Stack
+
+- **Typer** for the CLI
+- **LangChain** for retrieval and prompting
+- **FAISS** for vector storage
+- **Ollama** for local LLM and embeddings
+- **PyMuPDF** for PDF parsing
+- **DuckDuckGo Search** for PDF discovery
+- **UV** for dependency and environment management
 
 ## Notes
 
-### FAISS indexes
+### Cached files
 
-Each game gets its own isolated index under `faiss_index/<md5_stem>/`. The index is built on the first `rag` call and reloaded instantly on subsequent runs. Switching the embeddings model invalidates existing indexes — run `bgrules llm faiss-clear` first.
+Rulebooks are stored locally under the package cache directory. FAISS data is also stored locally.
 
-### Changing models
+### Model changes
 
-| Change | Action required |
-|---|---|
-| `LLM_MODEL` in `config.py` | None — takes effect immediately |
-| `EMBEDDINGS_MODEL` in `config.py` | Run `bgrules llm faiss-clear` then re-run `rag` |
+Changing the LLM does not require rebuilding indexes. Changing the embeddings model does.
 
 ### Git-ignored paths
 
-```
+```text
 bgrules/cache/
-faiss_index/
+bgrules/faiss_index/
 ```
+
+## Roadmap ideas
+
+- local file import: `add "Catan" ./rules.pdf`
+- support for non-direct URLs by discovering the actual PDF link
+- richer metadata per cached rulebook
+- web UI polish for the Streamlit app

@@ -140,6 +140,43 @@ def list_games():
 
 
 @app.command()
+def add(
+    game: str = typer.Argument(..., help="Name of the game to add to the cache"),
+    url: str = typer.Argument(..., help="Direct URL to the rules PDF"),
+    debug: bool = typer.Option(False, "--debug", help="Enable debug output"),
+):
+    """Download a rules PDF from a direct URL and add it to the cache."""
+    if debug:
+        sys.argv.append("--debug")
+
+    from bgrules.config import DEBUG_MODE
+    from bgrules.scraper import download_pdf_from_url, save_to_cache
+    from bgrules.rag import clear_game_index
+
+    if DEBUG_MODE:
+        typer.echo(f"DEBUG: Running with game={game!r}, url={url!r}, debug={debug}")
+
+    pdf_bytes = download_pdf_from_url(url)
+    if not pdf_bytes:
+        typer.echo("✗ Could not download a valid PDF from the provided URL.", err=True)
+        raise typer.Exit(code=1)
+
+    save_to_cache(game, pdf_bytes)
+    clear_game_index(game)
+
+    try:
+        p = ParserAgent()
+        p.run(pdf_bytes)
+    except Exception as e:
+        typer.echo(f"⚠️  PDF downloaded and cached, but pre-processing failed: {e}")
+        typer.echo(f"✓ '{game}' saved to cache.")
+        raise typer.Exit(code=0)
+
+    typer.echo(f"✓ '{game}' saved to cache.")
+    typer.echo("✓ Processed 1 document(s)")
+
+
+@app.command()
 def rag(
     game: Optional[str] = typer.Argument(
         None,
@@ -149,6 +186,7 @@ def rag(
     """Open an interactive RAG chat session against cached game rules."""
     from bgrules.rag import interactive_rag
     from bgrules.scraper import cache_exists
+    from bgrules.ollama import ensure_required_models_available
 
     if game:
         if not cache_exists(game):
@@ -161,6 +199,7 @@ def rag(
         typer.echo(f"✓ '{game}' found in cache.")
 
     try:
+        ensure_required_models_available()
         interactive_rag(game=game)
     except RuntimeError as e:
         typer.echo(f"✗ {e}", err=True)
