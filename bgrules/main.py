@@ -5,16 +5,19 @@ from typing import Optional
 
 from bgrules.agents import SearchAgent, FilterAgent, DownloadAgent, ParserAgent
 
+# Allow both --help and -h on every command and sub-command
+_CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
+
 # ---------------------------------------------------------------------------
 # Apps
 # ---------------------------------------------------------------------------
 
-app = typer.Typer(help="Board game rules retriever CLI", add_completion=False)
+app = typer.Typer(help="Board game rules retriever CLI", add_completion=False), context_settings=_CONTEXT_SETTINGS
 
-cache_app = typer.Typer(help="Manage the local PDF cache.", add_completion=False)
+cache_app = typer.Typer(help="Manage the local PDF cache.", add_completion=False, context_settings=_CONTEXT_SETTINGS)
 app.add_typer(cache_app, name="cache")
 
-llm_app = typer.Typer(help="Manage Ollama LLM and embeddings models.", add_completion=False)
+llm_app = typer.Typer(help="Manage Ollama LLM and embeddings models.", add_completion=False, context_settings=_CONTEXT_SETTINGS)
 app.add_typer(llm_app, name="llm")
 
 
