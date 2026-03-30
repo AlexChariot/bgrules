@@ -2,6 +2,7 @@ import requests
 from ddgs import DDGS
 import os
 import hashlib
+import unicodedata
 from bgrules.config import DEBUG_MODE
 
 
@@ -76,27 +77,103 @@ def _validate_pdf_content(pdf_bytes, game):
         return False
 
 
+def _ascii_fallback(text):
+    """Return an ASCII-only variant of *text* for search fallback."""
+    normalized = unicodedata.normalize("NFKD", text)
+    fallback = normalized.encode("ascii", "ignore").decode("ascii")
+    return " ".join(fallback.split())
+
+
+def _build_search_queries(game):
+    """Build ordered search query variants for resilient DDGS lookup."""
+    queries = [
+        f'"{game}" rules filetype:pdf',
+        f'"{game}" rulebook filetype:pdf',
+        f'"{game}" manuel filetype:pdf',
+        f'"{game}" regles filetype:pdf',
+        f'{game} rules filetype:pdf',
+    ]
+
+    ascii_game = _ascii_fallback(game)
+    if ascii_game and ascii_game.lower() != game.lower():
+        queries.extend(
+            [
+                f'"{ascii_game}" rules filetype:pdf',
+                f'"{ascii_game}" rulebook filetype:pdf',
+                f'"{ascii_game}" manuel filetype:pdf',
+                f'"{ascii_game}" regles filetype:pdf',
+                f"{ascii_game} rules filetype:pdf",
+            ]
+        )
+
+    deduped_queries = []
+    seen_queries = set()
+    for query in queries:
+        if query in seen_queries:
+            continue
+        seen_queries.add(query)
+        deduped_queries.append(query)
+
+    return deduped_queries
+
+
+def _ddgs_text_results(query, max_results=10):
+    """Search DDGS with stable backend fallbacks instead of aborting on one engine."""
+    backends = [
+        "google",
+        "duckduckgo",
+        "yahoo",
+        "mojeek",
+    ]
+
+    last_error = None
+    with DDGS() as ddgs:
+        for backend in backends:
+            try:
+                debug_print(f"DEBUG: DDGS search using backend={backend!r}, query={query!r}")
+                return ddgs.text(query, max_results=max_results, backend=backend)
+            except Exception as e:
+                last_error = e
+                debug_print(f"DEBUG: DDGS backend {backend!r} failed: {e}")
+
+    if last_error:
+        debug_print(f"DEBUG: All DDGS backends failed for query={query!r}: {last_error}")
+    return []
+
+
 def search(game):
     """Search for PDF rules, preferring exact matches."""
-    with DDGS() as ddgs:
-        # First try with exact match (quoted)
-        results = [r["href"] for r in ddgs.text(f'"{game}" rules filetype:pdf', max_results=10)]
-        debug_print(f"DEBUG: Found {len(results)} results for exact search: {game}")
-        
-        # Filter to strongly prefer results that contain the exact game name as distinct word
-        strong_matches = []
-        weak_matches = []
-        
-        for url in results:
-            if _is_game_name_in_url(game, url):
-                strong_matches.append(url)
-            else:
-                weak_matches.append(url)
-        
-        debug_print(f"DEBUG: {len(strong_matches)} strong matches, {len(weak_matches)} weak matches")
-        
-        # Return strong matches first, then weak if needed
-        return strong_matches + weak_matches
+    results = []
+    seen_urls = set()
+
+    for query in _build_search_queries(game):
+        query_results = _ddgs_text_results(query, max_results=10)
+        for result in query_results:
+            href = result.get("href")
+            if not href or href in seen_urls:
+                continue
+            seen_urls.add(href)
+            results.append(href)
+
+        if results:
+            break
+
+    debug_print(f"DEBUG: Found {len(results)} results for search: {game}")
+
+    # Filter to strongly prefer results that contain the exact game name as distinct word
+    strong_matches = []
+    weak_matches = []
+
+    for url in results:
+        if _is_game_name_in_url(game, url):
+            strong_matches.append(url)
+        else:
+            weak_matches.append(url)
+
+    debug_print(f"DEBUG: {len(strong_matches)} strong matches, {len(weak_matches)} weak matches")
+
+    # Return strong matches first, then weak if needed
+    return strong_matches + weak_matches
 
 
 def download_pdf_from_url(url, timeout=20):

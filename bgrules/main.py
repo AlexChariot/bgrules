@@ -36,6 +36,7 @@ def find(
 
     from bgrules.config import DEBUG_MODE
     from bgrules.scraper import save_to_cache
+    from bgrules.rag import clear_game_index
 
     if DEBUG_MODE:
         typer.echo(f"DEBUG: Running with game={game!r}, debug={debug}")
@@ -73,8 +74,8 @@ def find(
     for i, (url, content) in enumerate(candidates):
         typer.echo(f"[{i + 1}/{len(candidates)}] {url}")
 
+        temp_file_path = None
         try:
-            import fitz
             import tempfile
             import os
             import shutil
@@ -105,15 +106,19 @@ def find(
             if confirm:
                 chosen_content = content
                 save_to_cache(game, content)
+                clear_game_index(game)
                 typer.echo(f"✓ '{game}' saved to cache.")
                 break
             else:
                 typer.echo("  Skipping to next candidate...\n")
-
-            # Clean up the temporary file
-            os.unlink(temp_file_path)
         except Exception as e:
             typer.echo(f"  (Could not display PDF: {str(e)})")
+        finally:
+            if temp_file_path:
+                try:
+                    os.unlink(temp_file_path)
+                except FileNotFoundError:
+                    pass
 
     if chosen_content is None:
         typer.echo("✗ No suitable PDF was validated. Nothing saved to cache.")

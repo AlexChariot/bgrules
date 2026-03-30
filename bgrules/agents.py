@@ -22,7 +22,15 @@ class SearchAgent:
 class FilterAgent:
     def run(self, urls):
         _debug_print(f"DEBUG: FilterAgent running with urls={urls!r}")
-        filtered = [u for u in urls if u.endswith(".pdf")]
+        # Keep DuckDuckGo candidates intact and let the downloader validate
+        # redirected URLs and content-types. Deduplicate while preserving order.
+        filtered = []
+        seen = set()
+        for url in urls:
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            filtered.append(url)
         _debug_print(f"DEBUG: FilterAgent output={filtered!r}")
         return filtered
 
