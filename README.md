@@ -100,11 +100,11 @@ BGRules/
 
 ```mermaid
 flowchart LR
-    A[User: game name] --> B[SearchAgent]
-    A2[User: PDF URL (add)] --> D[DownloadAgent]
+    A[User game name] --> B[SearchAgent]
+    A2[User PDF URL] --> D[DownloadAgent]
 
     B -->|cache hit| D
-    B -->|urls| C[FilterAgent — .pdf only]
+    B -->|urls| C[FilterAgent: trusted domains]
     C -->|filtered urls| D
 
     D -->|all valid candidates\nFR first, then EN| V[Interactive validation]
@@ -113,7 +113,7 @@ flowchart LR
     Cache -->|pdf bytes| E[ParserAgent]
     E -->|text| I[FAISS index\nper game]
 
-    I --> J[(faiss_index/<stem>/)]
+    I --> J[faiss_index per game]
     J -->|reloaded on next run| I
 
     I -->|retriever| R[RAG Q&A chain]
