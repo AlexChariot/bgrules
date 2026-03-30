@@ -250,6 +250,26 @@ def cache_rebuild():
     typer.echo(f"✓ Rebuilt cache index with {len(rebuilt)} entries.")
 
 
+@cache_app.command(name="remove")
+def cache_remove(
+    game: str = typer.Argument(..., help="Name of the cached game to remove"),
+):
+    """Delete one cached PDF, its cache entry, and its FAISS index."""
+    from bgrules.scraper import remove_from_cache
+    from bgrules.rag import clear_game_index
+
+    removed_cache = remove_from_cache(game)
+    removed_index = clear_game_index(game)
+
+    if not removed_cache and not removed_index:
+        typer.echo(f"✗ '{game}' was not found in the cache.", err=True)
+        raise typer.Exit(code=1)
+
+    typer.echo(f"✓ Removed '{game}' from the cache.")
+    if removed_index:
+        typer.echo("✓ Removed the FAISS index for this game.")
+
+
 # ---------------------------------------------------------------------------
 # llm sub-commands  (bgrules llm <cmd>)
 # ---------------------------------------------------------------------------

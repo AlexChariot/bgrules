@@ -252,6 +252,38 @@ def save_to_cache(game, pdf_bytes):
     return None
 
 
+def remove_from_cache(game):
+    """Remove a cached PDF and its cache-index entry for *game*."""
+    import json
+
+    cache_path = get_cache_path(game)
+    removed_pdf = False
+    if os.path.exists(cache_path):
+        os.unlink(cache_path)
+        removed_pdf = True
+        debug_print(f"DEBUG: Removed cached PDF for {game}: {cache_path}")
+
+    index_path = _get_cache_index_path()
+    removed_index = False
+    if os.path.exists(index_path):
+        try:
+            with open(index_path, "r") as f:
+                index = json.load(f)
+        except Exception as e:
+            debug_print(f"DEBUG: Could not read cache index while removing {game}: {e}")
+            index = {}
+
+        safe_name = hashlib.md5(game.lower().encode()).hexdigest()
+        if safe_name in index:
+            del index[safe_name]
+            with open(index_path, "w") as f:
+                json.dump(index, f, indent=2)
+            removed_index = True
+            debug_print(f"DEBUG: Removed cache index entry for {game}")
+
+    return removed_pdf or removed_index
+
+
 def _get_cache_index_path():
     """Get path to the cache index file."""
     return os.path.join(CACHE_DIR, ".cache_index.json")

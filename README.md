@@ -228,6 +228,7 @@ bgrules
 │
 ├── cache
 │   ├── clear                Delete all cached PDFs and the cache index
+│   ├── remove <game>        Delete one cached game and its FAISS index
 │   └── rebuild              Rebuild the cache index from PDFs already on disk
 │
 └── llm
@@ -310,6 +311,14 @@ Deletes cached PDFs and the cache index.
 
 ```bash
 uv run bgrules cache clear
+```
+
+### `cache remove`
+
+Deletes one cached game, removes its cache entry, and clears its FAISS index.
+
+```bash
+uv run bgrules cache remove "Catan"
 ```
 
 ### `cache rebuild`
