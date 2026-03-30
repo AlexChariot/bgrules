@@ -155,9 +155,6 @@ def search(game):
             seen_urls.add(href)
             results.append(href)
 
-        if results:
-            break
-
     debug_print(f"DEBUG: Found {len(results)} results for search: {game}")
 
     # Filter to strongly prefer results that contain the exact game name as distinct word

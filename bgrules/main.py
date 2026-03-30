@@ -49,7 +49,7 @@ def find(
     urls = s.run(game)
 
     # Cache hit: load directly without validation loop
-    if not urls:
+    if urls is None:
         candidates = d.run([], game=game)
         if candidates:
             typer.echo(f"✓ Loaded '{game}' from cache.")
@@ -60,7 +60,7 @@ def find(
 
     urls = f.run(urls)
     if not urls:
-        typer.echo("✗ No PDF URLs found.")
+        typer.echo("✗ No trusted PDF URLs found.")
         return
 
     candidates = d.run(urls, game=game)

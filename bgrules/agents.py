@@ -14,7 +14,7 @@ class SearchAgent:
 
         if cache_exists(game):
             _debug_print(f"DEBUG: Found {game} in cache, skipping search")
-            return []  # Return empty list since we'll load from cache in DownloadAgent
+            return None
 
         return search(game)
 
@@ -22,12 +22,20 @@ class SearchAgent:
 class FilterAgent:
     def run(self, urls):
         _debug_print(f"DEBUG: FilterAgent running with urls={urls!r}")
-        # Keep DuckDuckGo candidates intact and let the downloader validate
-        # redirected URLs and content-types. Deduplicate while preserving order.
+        from urllib.parse import urlparse
+
+        from bgrules.config import ALLOWED_DOMAINS
+
+        # Keep candidates that come from configured/trusted rulebook sources and
+        # deduplicate them while preserving order.
         filtered = []
         seen = set()
         for url in urls:
             if not url or url in seen:
+                continue
+            hostname = urlparse(url).netloc.lower()
+            if ALLOWED_DOMAINS and not any(domain in hostname for domain in ALLOWED_DOMAINS):
+                _debug_print(f"DEBUG: Skipping untrusted domain for url={url!r}")
                 continue
             seen.add(url)
             filtered.append(url)
