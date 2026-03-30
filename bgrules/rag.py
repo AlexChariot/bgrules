@@ -75,6 +75,29 @@ def _load_faiss():
         ) from e
 
 
+def _chunk_text(text: str, chunk_size: int = 1500, chunk_overlap: int = 200) -> list[str]:
+    """Split extracted rulebook text into overlapping chunks for retrieval."""
+    if not text:
+        return []
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be positive")
+    if chunk_overlap < 0 or chunk_overlap >= chunk_size:
+        raise ValueError("chunk_overlap must be between 0 and chunk_size - 1")
+
+    chunks: list[str] = []
+    start = 0
+    text_length = len(text)
+    while start < text_length:
+        end = min(text_length, start + chunk_size)
+        chunk = text[start:end].strip()
+        if chunk:
+            chunks.append(chunk)
+        if end >= text_length:
+            break
+        start = end - chunk_overlap
+    return chunks
+
+
 def _build_game_index(stem: str, pdf_path: Path, game_name: str, embeddings) -> object:
     """Build (or load if already up to date) the FAISS index for a single game.
 
@@ -104,10 +127,15 @@ def _build_game_index(stem: str, pdf_path: Path, game_name: str, embeddings) -> 
             print(f"  ✗ {game_name}: no text extracted, skipping.")
             return None
 
-        index = FAISS.from_texts([text], embeddings)
+        chunks = _chunk_text(text)
+        if not chunks:
+            print(f"  ✗ {game_name}: no indexable chunks extracted, skipping.")
+            return None
+
+        index = FAISS.from_texts(chunks, embeddings)
         os.makedirs(index_dir, exist_ok=True)
         index.save_local(index_dir)
-        print(f"  ✓ {game_name}: index built and saved.")
+        print(f"  ✓ {game_name}: index built and saved ({len(chunks)} chunks).")
         return index
     except Exception as e:
         print(f"  ✗ {game_name}: error during indexing ({e})")
@@ -296,7 +324,7 @@ def interactive_rag(game: str = None):
             if game:
                 _open_pdf(game)
             else:
-                print("  ℹ️  'pdf' is only available when a single game is selected (--game).")
+                print("  ℹ️  'pdf' is only available when a single game name is provided.")
             continue
 
         try:

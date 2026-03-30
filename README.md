@@ -218,9 +218,9 @@ flowchart LR
 ```text
 bgrules
 ├── find <game>              Search, download, preview, validate, and cache a rules PDF
-│     --debug                Enable verbose debug output
+│     --debug                Enable runtime debug output for search/download steps
 ├── add <game> <url>         Download a rules PDF from a direct URL and add it to the cache
-│     --debug                Enable verbose debug output
+│     --debug                Enable runtime debug output for download/cache steps
 ├── list                     List all cached games (alphabetically)
 ├── rag [game]               Interactive RAG chat
 │                            Omit the game name to query all cached games
@@ -394,10 +394,19 @@ flowchart LR
 
 - each cached game is mapped to a stable local filename
 - each game gets its own FAISS index
+- extracted PDF text is split into overlapping chunks before embedding, improving retrieval precision
 - the index is built on the first `rag` call if it does not already exist
 - when using `add`, the previous index for that game is invalidated to avoid stale retrieval
 - querying a specific game uses only that game's index
 - querying without a game merges all cached indexes in memory
+
+## Testing
+
+Run the automated tests with:
+
+```bash
+./.venv/bin/python -m unittest discover -s tests -v
+```
 
 ## Stack
 

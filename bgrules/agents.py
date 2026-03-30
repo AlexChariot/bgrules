@@ -1,9 +1,9 @@
-from bgrules.config import DEBUG_MODE
+from bgrules.config import is_debug_mode
 
 
 def _debug_print(message):
     """Print debug message only if DEBUG_MODE is enabled."""
-    if DEBUG_MODE:
+    if is_debug_mode():
         print(message)
 
 

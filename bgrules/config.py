@@ -1,7 +1,9 @@
 import sys
 
-# Global debug flag - set based on command line arguments
-DEBUG_MODE = "--debug" in sys.argv
+
+def is_debug_mode() -> bool:
+    """Return True when debug output is enabled for the current process."""
+    return "--debug" in sys.argv
 
 ALLOWED_DOMAINS = [
     # Éditeurs majeurs

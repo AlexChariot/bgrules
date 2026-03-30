@@ -34,11 +34,11 @@ def find(
     if debug:
         sys.argv.append("--debug")
 
-    from bgrules.config import DEBUG_MODE
+    from bgrules.config import is_debug_mode
     from bgrules.scraper import save_to_cache
     from bgrules.rag import clear_game_index
 
-    if DEBUG_MODE:
+    if is_debug_mode():
         typer.echo(f"DEBUG: Running with game={game!r}, debug={debug}")
 
     s = SearchAgent()
@@ -158,11 +158,11 @@ def add(
     if debug:
         sys.argv.append("--debug")
 
-    from bgrules.config import DEBUG_MODE
+    from bgrules.config import is_debug_mode
     from bgrules.scraper import download_pdf_from_url, save_to_cache
     from bgrules.rag import clear_game_index
 
-    if DEBUG_MODE:
+    if is_debug_mode():
         typer.echo(f"DEBUG: Running with game={game!r}, url={url!r}, debug={debug}")
 
     pdf_bytes = download_pdf_from_url(url)
