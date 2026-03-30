@@ -74,8 +74,6 @@ flowchart LR
 
 ```text
 BGRules/
-├── api/
-│   └── server.py
 ├── bgrules/
 │   ├── __init__.py
 │   ├── agents.py          # Search / filter / download / parse pipeline

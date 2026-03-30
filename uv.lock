@@ -223,7 +223,6 @@ source = { editable = "." }
 dependencies = [
     { name = "ddgs" },
     { name = "faiss-cpu" },
-    { name = "fastapi" },
     { name = "langchain" },
     { name = "langchain-community" },
     { name = "langchain-ollama" },
@@ -233,14 +232,12 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "streamlit" },
     { name = "typer" },
-    { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "ddgs", specifier = ">=9.11.4" },
     { name = "faiss-cpu" },
-    { name = "fastapi" },
     { name = "langchain" },
     { name = "langchain-community" },
     { name = "langchain-ollama", specifier = ">=1.0.1" },
@@ -250,7 +247,6 @@ requires-dist = [
     { name = "sqlalchemy" },
     { name = "streamlit" },
     { name = "typer", specifier = ">=0.24.1" },
-    { name = "uvicorn" },
 ]
 
 [[package]]
@@ -470,22 +466,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b2/52/5d10642da628f63544aab27e48416be4a7ea25c6b81d8bd65016d8538b00/faiss_cpu-1.13.2-cp313-cp313-win_arm64.whl", hash = "sha256:1243967eeb2298791ff7f3683a4abd2100d7e6ec7542ca05c3b75d47a7f621e5", size = 8553088, upload-time = "2025-12-24T10:27:31.325Z" },
     { url = "https://files.pythonhosted.org/packages/b0/b1/daaab8046f56c60079648bd83774f61b283b59a9930a2f60790ee4cdedfe/faiss_cpu-1.13.2-cp314-cp314-win_amd64.whl", hash = "sha256:c8b645e7d56591aa35dc75415bb53a62e4a494dba010e16f4b67daeffd830bd7", size = 18892621, upload-time = "2025-12-24T10:27:33.923Z" },
     { url = "https://files.pythonhosted.org/packages/06/6f/5eaf3e249c636e616ebb52e369a4a2f1d32b1caf9a611b4f917b3dd21423/faiss_cpu-1.13.2-cp314-cp314-win_arm64.whl", hash = "sha256:8113a2a80b59fe5653cf66f5c0f18be0a691825601a52a614c30beb1fca9bc7c", size = 8556374, upload-time = "2025-12-24T10:27:36.653Z" },
-]
-
-[[package]]
-name = "fastapi"
-version = "0.135.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "annotated-doc" },
-    { name = "pydantic" },
-    { name = "starlette" },
-    { name = "typing-extensions" },
-    { name = "typing-inspection" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e7/7b/f8e0211e9380f7195ba3f3d40c292594fd81ba8ec4629e3854c353aaca45/fastapi-0.135.1.tar.gz", hash = "sha256:d04115b508d936d254cea545b7312ecaa58a7b3a0f84952535b4c9afae7668cd", size = 394962, upload-time = "2026-03-01T18:18:29.369Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e4/72/42e900510195b23a56bde950d26a51f8b723846bfcaa0286e90287f0422b/fastapi-0.135.1-py3-none-any.whl", hash = "sha256:46e2fc5745924b7c840f71ddd277382af29ce1cdb7d5eab5bf697e3fb9999c9e", size = 116999, upload-time = "2026-03-01T18:18:30.831Z" },
 ]
 
 [[package]]
@@ -2622,19 +2602,6 @@ wheels = [
 ]
 
 [[package]]
-name = "starlette"
-version = "0.52.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "anyio" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/c4/68/79977123bb7be889ad680d79a40f339082c1978b5cfcf62c2d8d196873ac/starlette-0.52.1.tar.gz", hash = "sha256:834edd1b0a23167694292e94f597773bc3f89f362be6effee198165a35d62933", size = 2653702, upload-time = "2026-01-18T13:34:11.062Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/81/0d/13d1d239a25cbfb19e740db83143e95c772a1fe10202dda4b76792b114dd/starlette-0.52.1-py3-none-any.whl", hash = "sha256:0029d43eb3d273bc4f83a08720b4912ea4b071087a3b48db01b7c839f7954d74", size = 74272, upload-time = "2026-01-18T13:34:09.188Z" },
-]
-
-[[package]]
 name = "streamlit"
 version = "1.55.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2793,20 +2760,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/20/049418d094d396dfa6606b30af925cc68a6670c3b9103b23e6990f84b589/uuid_utils-0.14.1-pp311-pypy311_pp73-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:50fffc2827348c1e48972eed3d1c698959e63f9d030aa5dd82ba451113158a62", size = 476731, upload-time = "2026-02-20T22:50:30.589Z" },
     { url = "https://files.pythonhosted.org/packages/77/a1/0857f64d53a90321e6a46a3d4cc394f50e1366132dcd2ae147f9326ca98b/uuid_utils-0.14.1-pp311-pypy311_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c1dbe718765f70f5b7f9b7f66b6a937802941b1cc56bcf642ce0274169741e01", size = 338902, upload-time = "2026-02-20T22:50:33.927Z" },
     { url = "https://files.pythonhosted.org/packages/ed/d0/5bf7cbf1ac138c92b9ac21066d18faf4d7e7f651047b700eb192ca4b9fdb/uuid_utils-0.14.1-pp311-pypy311_pp73-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:258186964039a8e36db10810c1ece879d229b01331e09e9030bc5dcabe231bd2", size = 364700, upload-time = "2026-02-20T22:50:21.732Z" },
-]
-
-[[package]]
-name = "uvicorn"
-version = "0.42.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "click" },
-    { name = "h11" },
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e3/ad/4a96c425be6fb67e0621e62d86c402b4a17ab2be7f7c055d9bd2f638b9e2/uvicorn-0.42.0.tar.gz", hash = "sha256:9b1f190ce15a2dd22e7758651d9b6d12df09a13d51ba5bf4fc33c383a48e1775", size = 85393, upload-time = "2026-03-16T06:19:50.077Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/0a/89/f8827ccff89c1586027a105e5630ff6139a64da2515e24dafe860bd9ae4d/uvicorn-0.42.0-py3-none-any.whl", hash = "sha256:96c30f5c7abe6f74ae8900a70e92b85ad6613b745d4879eb9b16ccad15645359", size = 68830, upload-time = "2026-03-16T06:19:48.325Z" },
 ]
 
 [[package]]

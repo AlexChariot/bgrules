@@ -14,3 +14,9 @@ bgrules/faiss_index/
 
 # Virtual environments
 .venv
+
+# Codex
+.codex
+
+# Database
+data/db.sqlite

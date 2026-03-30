@@ -10,8 +10,6 @@ dependencies = [
     "requests",
     "pymupdf",
     "faiss-cpu",
-    "fastapi",
-    "uvicorn",
     "streamlit",
     "sqlalchemy",
     "ddgs>=9.11.4",

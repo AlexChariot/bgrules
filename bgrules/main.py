@@ -58,6 +58,10 @@ def find(
             typer.echo("✗ No cached rules found.")
         return
 
+    if not urls:
+        typer.echo("✗ No search results found.")
+        return
+
     urls = f.run(urls)
     if not urls:
         typer.echo("✗ No trusted PDF URLs found.")
