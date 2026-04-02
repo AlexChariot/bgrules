@@ -1,3 +1,4 @@
+import os
 import sys
 
 
@@ -46,3 +47,7 @@ EMBEDDINGS_MODEL = "llama3"
 LLM_MODEL = "llama3"
 
 OLLAMA_BASE_URL = "http://localhost:11434"
+
+# BoardGameGeek XML API token. Create an approved application and token at:
+# https://boardgamegeek.com/applications
+BGG_API_TOKEN = os.environ.get("BGG_API_TOKEN", "").strip()

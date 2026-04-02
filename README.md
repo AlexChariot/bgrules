@@ -16,6 +16,7 @@ BGRules helps you build a local rulebook assistant for board games:
 
 - search and download rule PDFs
 - add your own rulebooks from a direct PDF URL
+- fetch BoardGameGeek metadata for a game
 - cache documents locally
 - build isolated FAISS indexes per game
 - chat with the rules through Ollama
@@ -46,6 +47,7 @@ flowchart LR
 - French-first download preference, with English fallback
 - interactive validation when using `find`
 - direct PDF import with `add`
+- BoardGameGeek metadata lookup with `info`
 - local cache for downloaded rulebooks
 - isolated FAISS index per game
 - all-games RAG mode when no game is specified
@@ -77,6 +79,7 @@ BGRules/
 ├── bgrules/
 │   ├── __init__.py
 │   ├── agents.py          # Search / filter / download / parse pipeline
+│   ├── bgg.py             # BoardGameGeek metadata lookup + storage
 │   ├── config.py          # Global configuration
 │   ├── db.py              # SQLAlchemy helpers
 │   ├── main.py            # CLI entry point (Typer)
@@ -185,6 +188,17 @@ curl -Ls https://astral.sh/uv/install.sh | sh
 uv sync
 ```
 
+### 4. Configure BoardGameGeek API access for `info`
+
+BoardGameGeek’s XML API now requires an approved application and bearer token for most access.
+
+Create your token on BoardGameGeek, then export it before using `info`:
+
+```bash
+export BGG_API_TOKEN="your-token-here"
+uv run bgrules info "Hanabi"
+```
+
 ## Quick start
 
 ```bash
@@ -193,6 +207,9 @@ uv run bgrules find "Pandemic"
 
 # Add a rulebook directly from a PDF URL
 uv run bgrules add "Catan" "https://example.com/catan-rules.pdf"
+
+# Fetch BoardGameGeek metadata and store it locally
+uv run bgrules info "Catan"
 
 # Ask questions about one cached game
 uv run bgrules rag "Pandemic"
@@ -221,6 +238,7 @@ bgrules
 │     --debug                Enable runtime debug output for search/download steps
 ├── add <game> <url>         Download a rules PDF from a direct URL and add it to the cache
 │     --debug                Enable runtime debug output for download/cache steps
+├── info <game>              Fetch and store BoardGameGeek metadata for a game
 ├── list                     List all cached games (alphabetically)
 ├── rag [game]               Interactive RAG chat
 │                            Omit the game name to query all cached games

@@ -21,6 +21,28 @@ llm_app = typer.Typer(help="Manage Ollama LLM and embeddings models.", add_compl
 app.add_typer(llm_app, name="llm")
 
 
+def _format_rating(value: Optional[float], scale: str) -> str:
+    if value is None:
+        return "Unknown"
+    return f"{value:.2f}/{scale}"
+
+
+def _format_players(min_players: Optional[int], max_players: Optional[int]) -> str:
+    if min_players is None and max_players is None:
+        return "Unknown"
+    if min_players == max_players or max_players is None:
+        return str(min_players)
+    if min_players is None:
+        return str(max_players)
+    return f"{min_players}-{max_players}"
+
+
+def _format_minutes(value: Optional[int]) -> str:
+    if value is None:
+        return "Unknown"
+    return f"{value} min"
+
+
 # ---------------------------------------------------------------------------
 # Main commands  (find · list · rag)
 # ---------------------------------------------------------------------------
@@ -183,6 +205,40 @@ def add(
 
     typer.echo(f"✓ '{game}' saved to cache.")
     typer.echo("✓ Processed 1 document(s)")
+
+
+@app.command()
+def info(
+    game: str = typer.Argument(..., help="Name of the game to retrieve metadata for"),
+):
+    """Fetch and store BoardGameGeek metadata for a board game."""
+    from bgrules.bgg import BoardGameGeekError, fetch_and_store_game_info, get_saved_game_info
+
+    source = "BoardGameGeek"
+    try:
+        record = fetch_and_store_game_info(game)
+    except Exception as exc:
+        cached = get_saved_game_info(game)
+        if cached is None:
+            message = str(exc)
+            if isinstance(exc, BoardGameGeekError):
+                typer.echo(f"✗ {message}", err=True)
+            else:
+                typer.echo(f"✗ Could not retrieve BoardGameGeek data: {message}", err=True)
+            raise typer.Exit(code=1)
+
+        record = cached
+        source = "local cache"
+        typer.echo(f"⚠️  Live BoardGameGeek fetch failed, using stored data: {exc}")
+
+    year_suffix = f" ({record.year_published})" if record.year_published else ""
+    typer.echo(f"Game: {record.bgg_name}{year_suffix}")
+    typer.echo(f"BGG id: {record.bgg_id}")
+    typer.echo(f"Rating: {_format_rating(record.average_rating, '10')}")
+    typer.echo(f"Players: {_format_players(record.min_players, record.max_players)}")
+    typer.echo(f"Playing time: {_format_minutes(record.playing_time_minutes)}")
+    typer.echo(f"Weight: {_format_rating(record.average_weight, '5')}")
+    typer.echo(f"Source: {source}")
 
 
 @app.command()
